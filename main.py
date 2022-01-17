@@ -211,7 +211,7 @@ class Game:
 			text_rect = text_surf.get_rect(bottomleft=(470, 550))
 			screen.blit(text_surf, text_rect)
 			button_new_game = Button(150, 60, (230, 230, 230))
-			button_new_game.draw(580, 670, 'Выход', self.leave)
+			button_new_game.draw(580, 670, 'Выйти', self.leave)
 
 
 	def show_lose_screen(self):
