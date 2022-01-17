@@ -1,7 +1,8 @@
 import pygame
-from random import choice
+import random
 import os
 import sys
+SCORE = 0
 
 
 def load_image(name, colorkey=None):
@@ -20,12 +21,36 @@ def load_image(name, colorkey=None):
 	return image
 
 
+class Button:
+	def __init__(self, width, height, color):
+		self.width = width
+		self.height = height
+		self.font = pygame.font.Font('data/Pixeled.ttf', 15)
+		self.color = color
+
+	def draw(self, x, y, text='', action=None, active=True):
+		mouse = pygame.mouse.get_pos()
+		click = pygame.mouse.get_pressed()
+		if x < mouse[0] < x + self.width and y < mouse[1] < y + self.height:
+				pygame.draw.rect(screen, self.color, (x, y, self.width, self.height), 3)
+				if click[0] == 1 and active:
+					pygame.time.delay(300)
+					action()
+		else:
+			pygame.draw.rect(screen, (35, 35, 35), (x, y, self.width, self.height), 3)
+		text_surf = self.font.render(text, False, self.color)
+		text_rect = text_surf.get_rect(topleft=(x + (self.width - text_surf.get_width()) / 2,
+												y + (self.height - text_surf.get_height()) / 2))
+		screen.blit(text_surf, text_rect)
+
+
 class Alien(pygame.sprite.Sprite):
 	def __init__(self, color, x, y):
 		super().__init__()
-		file = 'enemy_skins/' + color + '.png'
-		self.image = load_image(file )
-		self.rect = self.image.get_rect(topleft=(x, y))
+		self.image = load_image(f'enemy_skins/{color}.png')
+		self.rect = self.image.get_rect()
+		self.rect.x = x
+		self.rect.y = y
 		self.mask = pygame.mask.from_surface(self.image)
 
 	def update(self, direction):
@@ -39,6 +64,7 @@ class Player(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect(midbottom=pos)
 		self.mask = pygame.mask.from_surface(self.image)
 		self.speed = speed
+		self.leave = False
 		# Для лазера и ускорения
 		self.ready = True
 		self.laser_time = 0
@@ -74,11 +100,12 @@ class Player(pygame.sprite.Sprite):
 			self.shoot_laser()
 			self.ready = False
 			self.laser_time = pygame.time.get_ticks()
-		# Ускорение
-		if keys[pygame.K_k]:
-			self.laser_cd = 200
-			self.speed_time = pygame.time.get_ticks()
-
+		# для тестов
+		# if keys[pygame.K_k]:
+		# 	self.laser_cd = 10
+		# 	self.speed_time = pygame.time.get_ticks()
+		if keys[pygame.K_ESCAPE]:
+			self.leave = True
 		if self.directions['right']:
 			self.rect.x += self.speed
 		if self.directions['left']:
@@ -98,10 +125,10 @@ class Player(pygame.sprite.Sprite):
 	def check_borders(self):
 		if self.rect.left <= 0:
 			self.rect.left = 0
-		if self.rect.right >= 1000:
-			self.rect.right = 1000
-		if self.rect.bottom >= 1000:
-			self.rect.bottom = 1000
+		if self.rect.right >= 900:
+			self.rect.right = 900
+		if self.rect.bottom >= 900:
+			self.rect.bottom = 900
 
 	def shoot_laser(self):
 		self.lasers.add(Laser(self.rect.center, -8))
@@ -130,21 +157,24 @@ class Laser(pygame.sprite.Sprite):
 
 	# Убирает лазеры, когда те улетают за экран
 	def destroy_laser(self):
-		if self.rect.y <= -50 or self.rect.y >= 1050:
+		global SCORE
+		if self.rect.y <= -50:
+			SCORE -= 50
 			self.kill()
+		elif self.rect.y >= 950:
+			self.kill()
+
 
 	def update(self):
 		self.rect.y += self.speed
 		self.destroy_laser()
 
 
-class StartScreen:
-	pass
-
-
 class Game:
 	def __init__(self):
+		global SCORE
 		# Игрок
+		self.score_board = {1: 6600, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100, 7: 100, 8: 100}
 		player = Player((screen_width / 2, screen_height), 5)
 		self.player_mask = player
 		self.player = pygame.sprite.GroupSingle(player)
@@ -153,26 +183,119 @@ class Game:
 		self.lives = 3
 		self.live_surf = load_image('heart/heart.png')
 		self.live_x_start_pos = screen_width - (self.live_surf.get_size()[0] * 2 + 20)
-		self.score = 0
+		SCORE = 0
 		self.font = pygame.font.Font('data/Pixeled.ttf', 20)
 
 		# Враги, их лазеры
 		self.aliens = pygame.sprite.Group()
 		self.alien_lasers = pygame.sprite.Group()
 		self.alien_direction = 1
+		self.starting_screen = True
+		self.choosing_level = False
+		self.lost_screen = False
+		self.current_level = 1
 
-		# Загрузка уровня, которая пока не работает
-		self.load_level(1)
+	def show_starting_screen(self):
+		if self.starting_screen:
+			screen.fill((35, 35, 35))
+			background = load_image('Starting_screen.png')
+			back_rect = background.get_rect(topleft=(0, 0))
+			screen.blit(background, back_rect)
+			button_new_game = Button(200, 60, (230, 230, 230))
+			button_new_game.draw(560, 600, 'Начать игру', self.switch_screens)
+			text_surf = pygame.font.Font('data/Pixeled.ttf', 30).render('Space Invaders', False, 'white')
+			text_rect = text_surf.get_rect(bottomleft=(470, 550))
+			screen.blit(text_surf, text_rect)
 
-	def load_level(self, level):
-		with open(f'data/levels/level{level}.txt') as content:
-			lev = content.readlines()
+	def show_lose_screen(self):
+		if SCORE < 0:
+			self.lost_screen = True
+		if self.lost_screen:
+			self.aliens = pygame.sprite.Group()
+			self.alien_lasers = pygame.sprite.Group()
+			player = Player((screen_width / 2, screen_height), 5)
+			self.player_mask = player
+			self.player = pygame.sprite.GroupSingle(player)
+			screen.fill((35, 35, 35))
+			background = load_image('Lost_screen.png')
+			back_rect = background.get_rect(topleft=(0, 0))
+			screen.blit(background, back_rect)
+			victory_surf = self.font.render('Вы проиграли :(', False, 'white')
+			victory_rect = victory_surf.get_rect(center=(screen_width / 2, screen_height / 2 + 50))
+			button_next = Button(150, 50, (230, 230, 230))
+			button_next.draw(screen_width / 2 - 70, screen_height / 2 + 90, 'В меню', self.next_level)
+			screen.blit(victory_surf, victory_rect)
+
+	def switch_screens(self):
+		self.starting_screen = not self.starting_screen
+		self.choosing_level = not self.choosing_level
+
+	def show_choose_level_screen(self):
+		if self.choosing_level:
+			screen.fill((35, 35, 35))
+			text_surf = self.font.render('Уровни', False, 'white')
+			text_rect = text_surf.get_rect(topleft=(450 - text_surf.get_height(), 100))
+			screen.blit(text_surf, text_rect)
+			# Вернуться в меню
+			button_new_game = Button(300, 60, (230, 230, 230))
+			button_new_game.draw(20, 20, 'В главное меню', self.switch_screens)
+			# уровни
+			levels = '12345678'
+			with open('data/levels/progress.txt') as f:
+				completed_levels = f.read()
+			for i, level in enumerate(levels):
+				if level in completed_levels:
+					exec(f'button = Button(50, 50, (230, 230, 230))')
+					exec(f'button.draw(i * 60 + 220, 180, "{level}", self.load_level, True)')
+				else:
+					exec(f'button = Button(50, 50, (70, 70, 70))')
+					exec(f'button.draw(i * 60 + 220, 180, "{level}", None, False)')
+			b_inf = Button(200, 50, (230, 230, 230))
+			b_inf.draw(355, 300, 'Случайный', self.load_random_level, True)
+
+	def load_level(self):
+		if not self.player_mask.leave:
+			screen.fill((35, 35, 35))
+			self.starting_screen = False
+			self.choosing_level = False
+			mouse = pygame.mouse.get_pos()
+			self.current_level = (mouse[0] - 220) // 60 + 1
+			with open(f'data/levels/level{self.current_level}.txt') as content:
+				lev = content.readlines()
+			x = 0
+			y = 0
+			for line in lev:
+				for spot in line:
+					if spot == '.':
+						pass
+					elif spot == 'g':
+						alien_sprite = Alien('green', x, y)
+						self.aliens.add(alien_sprite)
+					elif spot == 'r':
+						alien_sprite = Alien('red', x, y)
+						self.aliens.add(alien_sprite)
+					elif spot == 'y':
+						alien_sprite = Alien('yellow', x, y)
+						self.aliens.add(alien_sprite)
+					x += 50
+				y += 32
+				x = 0
+
+	def load_random_level(self):
+		self.starting_screen = False
+		self.choosing_level = False
+		lev = []
+		for _ in range(8):
+			line = ''
+			for _ in range(16):
+				line += random.choice(['.', 'g', 'r', 'y', '.'])
+			lev.append(line)
 		x = 0
 		y = 0
 		for line in lev:
 			for spot in line:
 				if spot == '.':
-					x += 50
+					pass
 				elif spot == 'g':
 					alien_sprite = Alien('green', x, y)
 					self.aliens.add(alien_sprite)
@@ -182,7 +305,7 @@ class Game:
 				elif spot == 'y':
 					alien_sprite = Alien('yellow', x, y)
 					self.aliens.add(alien_sprite)
-				x += 20
+				x += 50
 			y += 32
 			x = 0
 
@@ -204,17 +327,18 @@ class Game:
 
 	def shoot(self):
 		if self.aliens.sprites():
-			random_alien = choice(self.aliens.sprites())
+			random_alien = random.choice(self.aliens.sprites())
 			laser_sprite = Laser(random_alien.rect.center, 6)
 			self.alien_lasers.add(laser_sprite)
 
 	def check_collision(self):
+		global SCORE
 		# Попадание лазера игрока во врага
 		if self.player.sprite.lasers:
 			for laser in self.player.sprite.lasers:
 				if pygame.sprite.spritecollide(laser, self.aliens, True):
+					SCORE += 100
 					laser.kill()
-					self.score += 100
 
 		# Попадание лазера врага в игрока
 		if self.alien_lasers:
@@ -222,55 +346,94 @@ class Game:
 				if pygame.sprite.collide_mask(laser, self.player_mask):
 					laser.kill()
 					self.lives -= 1
+					SCORE -= 200
+					screen.fill((80, 35, 35))
 					if self.lives == 0:
-						pygame.quit()
-						sys.exit()
+						self.lost_screen = True
 
 		# При столкновении игрока с врагом
 		if self.aliens:
 			for alien in self.aliens:
 				if pygame.sprite.spritecollide(alien, self.player, False):
-					pygame.quit()
-					sys.exit()
+					self.lost_screen = True
 
 	def display_score_and_lives(self):
-		score_surf = self.font.render(f'Счет: {self.score}', False, 'white')
+		global SCORE
+		score_surf = self.font.render(f'Счет: {SCORE}', False, 'white')
 		score_rect = score_surf.get_rect(topleft=(10, -10))
 		screen.blit(score_surf, score_rect)
 		for live in range(self.lives):
 			x = self.live_x_start_pos + (live * (self.live_surf.get_size()[0] - 10)) - 50
 			screen.blit(self.live_surf, (x, 8))
 
-	def victory_message(self):
+	def victory(self):
 		if not self.aliens.sprites():
-			victory_surf = self.font.render('You won', False, 'white')
+			screen.fill((35, 35, 35))
+			victory_surf = self.font.render('Уровень пройден', False, 'white')
 			victory_rect = victory_surf.get_rect(center=(screen_width / 2, screen_height / 2))
+			button_next = Button(150, 50, (230, 230, 230))
+			button_next.draw(screen_width / 2 - 70, screen_height / 2 + 100, 'Дальше', self.next_level)
 			screen.blit(victory_surf, victory_rect)
+			score_surf = self.font.render(f'Счет: {SCORE}/{self.score_board[self.current_level]}', False, 'white')
+			score_rect = score_surf.get_rect(center=(screen_width / 2, screen_height / 2 + 60))
+			screen.blit(score_surf, score_rect)
+			with open('data/levels/progress.txt', 'r') as f:
+				all_levels = f.read()
+			if not str(self.current_level) in all_levels:
+				with open('data/levels/progress.txt', 'a') as f:
+					f.seek(0, 2)
+					f.write(str(self.current_level))
+
+	def next_level(self):
+		global SCORE
+		screen.fill((35, 35, 35))
+		self.current_level += 1
+		self.choosing_level = True
+		self.lost_screen = False
+		SCORE = 0
+		self.lives = 3
 
 	def run(self):
-		self.player.update()
-		self.alien_lasers.update()
-		self.aliens.update(self.alien_direction)
-		self.check_aliens()
-		self.check_collision()
-		self.player.sprite.lasers.draw(screen)
-		self.player.draw(screen)
-		self.aliens.draw(screen)
-		self.alien_lasers.draw(screen)
-		self.display_score_and_lives()
-		self.victory_message()
+		global SCORE
+		if self.player_mask.leave:
+			self.choosing_level = True
+			self.aliens = pygame.sprite.Group()
+			self.alien_lasers = pygame.sprite.Group()
+			player = Player((screen_width / 2, screen_height), 5)
+			self.player_mask = player
+			self.player = pygame.sprite.GroupSingle(player)
+			SCORE = 0
+		self.show_starting_screen()
+		self.show_choose_level_screen()
+		self.show_lose_screen()
+		if self.starting_screen == self.choosing_level == False == self.lost_screen:
+			self.player.update()
+			self.alien_lasers.update()
+			self.aliens.update(self.alien_direction)
+			self.check_aliens()
+			self.check_collision()
+			self.player.sprite.lasers.draw(screen)
+			self.player.draw(screen)
+			self.aliens.draw(screen)
+			self.alien_lasers.draw(screen)
+			self.display_score_and_lives()
+			self.victory()
 
 
 if __name__ == '__main__':
 	pygame.init()
-	screen_width = 1000
-	screen_height = 1000
+	screen_width = 900
+	screen_height = 900
 	screen = pygame.display.set_mode((screen_width, screen_height))
+	pygame.display.set_caption('Space-Invaders')
+	icon = load_image('hero_skins\player3_temp.png')
+	pygame.display.set_icon(icon)
 	clock = pygame.time.Clock()
 	game = Game()
 	alien_laser_ready = 0
 	pygame.time.set_timer(alien_laser_ready, 600)
 	time_start = 0
+	game.show_starting_screen()
 	while True:
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT:
@@ -278,7 +441,7 @@ if __name__ == '__main__':
 				sys.exit()
 			if event.type == alien_laser_ready:
 				game.shoot()
-		screen.fill((30, 30, 30))
+		screen.fill((35, 35, 35))
 		game.run()
 		pygame.display.flip()
 		clock.tick(60)
