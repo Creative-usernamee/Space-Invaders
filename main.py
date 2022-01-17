@@ -195,6 +195,10 @@ class Game:
 		self.lost_screen = False
 		self.current_level = 1
 
+	def leave(self):
+		pygame.quit()
+		sys.exit()
+
 	def show_starting_screen(self):
 		if self.starting_screen:
 			screen.fill((35, 35, 35))
@@ -206,6 +210,9 @@ class Game:
 			text_surf = pygame.font.Font('data/Pixeled.ttf', 30).render('Space Invaders', False, 'white')
 			text_rect = text_surf.get_rect(bottomleft=(470, 550))
 			screen.blit(text_surf, text_rect)
+			button_new_game = Button(150, 60, (230, 230, 230))
+			button_new_game.draw(580, 670, 'Выход', self.leave)
+
 
 	def show_lose_screen(self):
 		if SCORE < 0:
