@@ -58,9 +58,13 @@ class Alien(pygame.sprite.Sprite):
 
 
 class Player(pygame.sprite.Sprite):
-	def __init__(self, pos, speed):
+	def __init__(self, pos, speed, skin):
 		super().__init__()
-		self.image = load_image('hero_skins/player.png')
+		self.pos = pos
+		if skin == 0:
+			self.image = load_image('hero_skins/player_.png')
+		else:
+			self.image = load_image('hero_skins/player3.png')
 		self.rect = self.image.get_rect(midbottom=pos)
 		self.mask = pygame.mask.from_surface(self.image)
 		self.speed = speed
@@ -131,7 +135,7 @@ class Player(pygame.sprite.Sprite):
 			self.rect.bottom = 900
 
 	def shoot_laser(self):
-		self.lasers.add(Laser(self.rect.center, -8))
+		self.lasers.add(Laser(self.rect.center, -8, (255, 255, 255)))
 
 	# Отключает ускорение
 	def deny_speed(self):
@@ -148,10 +152,10 @@ class Player(pygame.sprite.Sprite):
 
 
 class Laser(pygame.sprite.Sprite):
-	def __init__(self, pos, speed):
+	def __init__(self, pos, speed, color):
 		super().__init__()
-		self.image = pygame.Surface((4, 20))
-		self.image.fill('white')
+		self.image = pygame.Surface((6, 22))
+		self.image.fill(color)
 		self.rect = self.image.get_rect(center=pos)
 		self.speed = speed
 
@@ -174,11 +178,11 @@ class Game:
 	def __init__(self):
 		global SCORE
 		# Игрок
-		self.score_board = {1: 6600, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100, 7: 100, 8: 100}
-		player = Player((screen_width / 2, screen_height), 5)
+		self.skin = 0
+		self.score_board = {1: 4800, 2: 6000, 3: 6400, 4: 100, 5: 100, 6: 100, 7: 100, 8: 100}
+		player = Player((screen_width / 2, screen_height), 5, self.skin)
 		self.player_mask = player
 		self.player = pygame.sprite.GroupSingle(player)
-
 		# Жизини и очки
 		self.lives = 3
 		self.live_surf = load_image('heart/heart.png')
@@ -193,6 +197,7 @@ class Game:
 		self.starting_screen = True
 		self.choosing_level = False
 		self.lost_screen = False
+		self.shop = False
 		self.current_level = 1
 
 	def leave(self):
@@ -210,9 +215,14 @@ class Game:
 			text_surf = pygame.font.Font('data/Pixeled.ttf', 30).render('Space Invaders', False, 'white')
 			text_rect = text_surf.get_rect(bottomleft=(470, 550))
 			screen.blit(text_surf, text_rect)
+			button_new_game = Button(170, 60, (230, 230, 230))
+			button_new_game.draw(580, 680, 'Магазин', self.switch_shop)
 			button_new_game = Button(150, 60, (230, 230, 230))
-			button_new_game.draw(580, 670, 'Выйти', self.leave)
+			button_new_game.draw(590, 760, 'Выйти', self.leave)
 
+	def switch_shop(self):
+		self.shop = not self.shop
+		self.starting_screen = not self.starting_screen
 
 	def show_lose_screen(self):
 		if SCORE < 0:
@@ -220,7 +230,7 @@ class Game:
 		if self.lost_screen:
 			self.aliens = pygame.sprite.Group()
 			self.alien_lasers = pygame.sprite.Group()
-			player = Player((screen_width / 2, screen_height), 5)
+			player = Player((screen_width / 2, screen_height), 5, self.skin)
 			self.player_mask = player
 			self.player = pygame.sprite.GroupSingle(player)
 			screen.fill((35, 35, 35))
@@ -232,6 +242,57 @@ class Game:
 			button_next = Button(150, 50, (230, 230, 230))
 			button_next.draw(screen_width / 2 - 70, screen_height / 2 + 90, 'В меню', self.next_level)
 			screen.blit(victory_surf, victory_rect)
+
+	def show_shop_screen(self):
+		if self.shop:
+			screen.fill((35, 35, 35))
+			background = load_image('Shop_screen.png')
+			back_rect = background.get_rect(topleft=(0, 0))
+			screen.blit(background, back_rect)
+			button_new_game = Button(300, 60, (230, 230, 230))
+			button_new_game.draw(20, 20, 'В главное меню', self.switch_shop)
+			with open('data/levels/coins.txt', 'r') as f:
+				coins = int(f.read().strip())
+			money_surf = self.font.render(f'Монет: {coins}', False, 'white')
+			money_rect = money_surf.get_rect(topright=(800, 20))
+			screen.blit(money_surf, money_rect)
+			# -- #
+			with open('data/hero_skins/own_skin3.txt', 'r') as f:
+				own_skin3 = f.read().strip()
+			button_buy= Button(250, 60, (230, 230, 230))
+			button_buy.draw(150, 600, 'Выбрать', self.choose_skin_0)
+			if own_skin3 == '0':
+				button_buy= Button(250, 60, (230, 230, 230))
+				button_buy.draw(510, 600, 'Купить (400)', self.buy_ship)
+			else:
+				button_buy= Button(250, 60, (230, 230, 230))
+				button_buy.draw(510, 600, 'Выбрать', self.choose_skin_1)
+
+	def choose_skin_0(self):
+		self.skin = 0
+		player = Player((screen_width / 2, screen_height), 5, self.skin)
+		self.player_mask = player
+		self.player = pygame.sprite.GroupSingle(player)
+		self.shop = False
+		self.starting_screen = True
+
+	def choose_skin_1(self):
+		self.skin = 1
+		player = Player((screen_width / 2, screen_height), 5, self.skin)
+		self.player_mask = player
+		self.player = pygame.sprite.GroupSingle(player)
+		self.shop = False
+		self.starting_screen = True
+
+	def buy_ship(self):
+		with open('data/levels/coins.txt', 'r') as f:
+			coins = int(f.read().strip())
+		if coins >= 400:
+			coins -= 400
+			with open('data/levels/coins.txt', 'w') as f:
+				f.write(str(coins))
+			with open('data/hero_skins/own_skin3.txt', 'w') as f:
+				f.write('1')
 
 	def switch_screens(self):
 		self.starting_screen = not self.starting_screen
@@ -335,7 +396,7 @@ class Game:
 	def shoot(self):
 		if self.aliens.sprites():
 			random_alien = random.choice(self.aliens.sprites())
-			laser_sprite = Laser(random_alien.rect.center, 6)
+			laser_sprite = Laser(random_alien.rect.center, 6, (255, 255, 255))
 			self.alien_lasers.add(laser_sprite)
 
 	def check_collision(self):
@@ -375,15 +436,25 @@ class Game:
 
 	def victory(self):
 		if not self.aliens.sprites():
+			self.aliens = pygame.sprite.Group()
+			self.alien_lasers = pygame.sprite.Group()
+			player = Player((screen_width / 2, screen_height), 5, self.skin)
+			self.player_mask = player
+			self.player = pygame.sprite.GroupSingle(player)
 			screen.fill((35, 35, 35))
 			victory_surf = self.font.render('Уровень пройден', False, 'white')
-			victory_rect = victory_surf.get_rect(center=(screen_width / 2, screen_height / 2))
-			button_next = Button(150, 50, (230, 230, 230))
-			button_next.draw(screen_width / 2 - 70, screen_height / 2 + 100, 'Дальше', self.next_level)
+			victory_rect = victory_surf.get_rect(center=(screen_width / 2, screen_height / 2 - 20))
 			screen.blit(victory_surf, victory_rect)
+			#
 			score_surf = self.font.render(f'Счет: {SCORE}/{self.score_board[self.current_level]}', False, 'white')
-			score_rect = score_surf.get_rect(center=(screen_width / 2, screen_height / 2 + 60))
+			score_rect = score_surf.get_rect(center=(screen_width / 2, screen_height / 2 + 50))
 			screen.blit(score_surf, score_rect)
+			#
+			score_surf = self.font.render(f'Получено монет: {SCORE // 10}', False, 'white')
+			score_rect = score_surf.get_rect(center=(screen_width / 2, screen_height / 2 + 100))
+			screen.blit(score_surf, score_rect)
+			button_next = Button(150, 50, (230, 230, 230))
+			button_next.draw(screen_width / 2 - 70, screen_height / 2 + 140, 'Дальше', self.next_level)
 			with open('data/levels/progress.txt', 'r') as f:
 				all_levels = f.read()
 			if not str(self.current_level) in all_levels:
@@ -397,6 +468,11 @@ class Game:
 		self.current_level += 1
 		self.choosing_level = True
 		self.lost_screen = False
+		with open('data/levels/coins.txt', 'r') as f:
+			cur_coins = f.read().strip()
+		cur_coins = int(cur_coins)
+		with open('data/levels/coins.txt', 'w') as f:
+			f.write(str(SCORE // 10 + cur_coins))
 		SCORE = 0
 		self.lives = 3
 
@@ -406,14 +482,15 @@ class Game:
 			self.choosing_level = True
 			self.aliens = pygame.sprite.Group()
 			self.alien_lasers = pygame.sprite.Group()
-			player = Player((screen_width / 2, screen_height), 5)
+			player = Player((screen_width / 2, screen_height), 5, self.skin)
 			self.player_mask = player
 			self.player = pygame.sprite.GroupSingle(player)
 			SCORE = 0
 		self.show_starting_screen()
 		self.show_choose_level_screen()
 		self.show_lose_screen()
-		if self.starting_screen == self.choosing_level == False == self.lost_screen:
+		self.show_shop_screen()
+		if self.starting_screen == self.choosing_level == self.lost_screen == self.shop == False:
 			self.player.update()
 			self.alien_lasers.update()
 			self.aliens.update(self.alien_direction)
