@@ -179,7 +179,8 @@ class Game:
 		global SCORE
 		# Игрок
 		self.skin = 0
-		self.score_board = {1: 4800, 2: 6000, 3: 6400, 4: 100, 5: 100, 6: 100, 7: 100, 8: 100}
+		self.score_board = {1: 4800, 2: 6000, 3: 6400, 4: 6800, 5: 7200, 6: 8000, 7: 9000, 8: 12800}
+		self.max_score = 0
 		player = Player((screen_width / 2, screen_height), 5, self.skin)
 		self.player_mask = player
 		self.player = pygame.sprite.GroupSingle(player)
@@ -350,13 +351,17 @@ class Game:
 				x = 0
 
 	def load_random_level(self):
+		global SCORE
 		self.starting_screen = False
 		self.choosing_level = False
 		lev = []
 		for _ in range(8):
 			line = ''
 			for _ in range(16):
-				line += random.choice(['.', 'g', 'r', 'y', '.'])
+				a = random.choice(['.', 'g', 'r', 'y', '.'])
+				if a != '.':
+					self.max_score += 100
+				line += a
 			lev.append(line)
 		x = 0
 		y = 0
@@ -376,6 +381,7 @@ class Game:
 				x += 50
 			y += 32
 			x = 0
+		SCORE = self.max_score
 
 	def check_aliens(self):
 		all_aliens = self.aliens.sprites()
@@ -450,7 +456,7 @@ class Game:
 			score_rect = score_surf.get_rect(center=(screen_width / 2, screen_height / 2 + 50))
 			screen.blit(score_surf, score_rect)
 			#
-			score_surf = self.font.render(f'Получено монет: {SCORE // 10}', False, 'white')
+			score_surf = self.font.render(f'Получено монет: {SCORE // 100}', False, 'white')
 			score_rect = score_surf.get_rect(center=(screen_width / 2, screen_height / 2 + 100))
 			screen.blit(score_surf, score_rect)
 			button_next = Button(150, 50, (230, 230, 230))
@@ -472,7 +478,7 @@ class Game:
 			cur_coins = f.read().strip()
 		cur_coins = int(cur_coins)
 		with open('data/levels/coins.txt', 'w') as f:
-			f.write(str(SCORE // 10 + cur_coins))
+			f.write(str(SCORE // 100 + cur_coins))
 		SCORE = 0
 		self.lives = 3
 
@@ -515,7 +521,7 @@ if __name__ == '__main__':
 	clock = pygame.time.Clock()
 	game = Game()
 	alien_laser_ready = 0
-	pygame.time.set_timer(alien_laser_ready, 600)
+	pygame.time.set_timer(alien_laser_ready, 400)
 	time_start = 0
 	game.show_starting_screen()
 	while True:
